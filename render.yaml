@@ -1,0 +1,33 @@
+# Render blueprint = one-click deploy from this repo (Dashboard > New > Blueprint).
+# Reference: https://render.com/docs/blueprint-spec
+services:
+  - type: web # NOT "worker": Background Workers are paid-only, and a worker cannot be
+    #           pinged. A free *web service* is the only free way to keep the bot online.
+    name: discord-home-form-bot
+    runtime: python
+    plan: free
+    region: frankfurt # closest EU region to France; change if unavailable on your account
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    healthCheckPath: /health # Render restarts the container if this stops answering
+    autoDeploy: true # every git push redeploys the bot
+    envVars:
+      # Python version Render should install (see the log line if the build fails here)
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      # secrets: no "value" => Render asks for it in the dashboard, nothing in git
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: ADMIN_USER_IDS
+        sync: false
+      - key: GUILD_ID
+        sync: false
+      # non-secret defaults, edit later in the dashboard
+      - key: FORM_TITLE
+        value: Intake form
+      - key: FORM_COOLDOWN_SECONDS
+        value: "30"
+      - key: HEALTH_ENABLED
+        value: "true"
+      - key: LOG_LEVEL
+        value: info
