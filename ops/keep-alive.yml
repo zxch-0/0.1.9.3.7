@@ -1,0 +1,39 @@
+# TO ACTIVATE: copy this file into your repo at .github/workflows/keep-alive.yml
+#   mkdir -p .github/workflows && cp ops/keep-alive.yml .github/workflows/keep-alive.yml
+# (It ships outside .github/ on purpose: a GitHub App without the "workflows"
+# permission cannot push workflow files, and this monitor is only the optional
+# fallback — UptimeRobot, described in README.md §6, is the primary keep-alive.)
+#
+# UptimeRobot is the primary keep-alive (see README.md). This is the plan B:
+# GitHub's scheduler pings /health too, so one service going down does not put
+# the bot to sleep. Cron is not second-exact: it can drift by a few minutes, so
+# the cadence here is 8 minutes rather than the theoretical maximum of 14.
+name: Keep the bot awake (optional fallback)
+on:
+  schedule:
+    - cron: "*/8 * * * *"
+  workflow_dispatch: {} # lets you run it by hand from the Actions tab
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Wake the Render service
+        env:
+          HEALTH_URL: ${{ vars.HEALTH_URL }} # e.g. https://discord-home-form-bot.onrender.com/health
+        run: |
+          set -euo pipefail
+          if [ -z "${HEALTH_URL}" ]; then
+            echo "Set HEALTH_URL in the repo's Actions variables (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+          code=$(curl -sS -o /tmp/body -w "%{http_code}" --max-time 25 "${HEALTH_URL}" || echo 000)
+          echo "HTTP ${code}"
+          cat /tmp/body
+          # 503 means the process is awake but the gateway is still reconnecting: fine.
+          if [ "${code}" = "000" ]; then
+            echo "::warning::${HEALTH_URL} did not answer"
+          fi
